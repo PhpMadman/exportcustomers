@@ -1,32 +1,59 @@
 <?php
+/**
+* 2014 Madman
+*
+* NOTICE OF LICENSE
+*
+* This source file is subject to the Open Software License (OSL 3.0)
+* that is bundled with this package in the file LICENSE.txt.
+* It is also available through the world-wide-web at this URL:
+* http://opensource.org/licenses/osl-3.0.php
+* If you did not receive a copy of the license and are unable to
+* obtain it through the world-wide-web, please send an email
+* to license@prestashop.com so we can send you a copy immediately.
+*
+*  @author Madman
+*  @copyright  2014 Madman
+*  @license	http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+**/
+
+	if (!defined('_PS_VERSION_'))
+	exit;
 
 class ExportCustomers extends Module
 {
-	function __construct()
+	public function __construct()
 	{
 		$this->name = 'exportcustomers';
-		$this->tab = 'Export';
-		$this->version = "1.4.1";
-		$this->author = 'Madman'; //. Based on Willem's module';
+		$this->tab = 'export';
+		$this->version = "2.0";
+		$this->author = 'Madman';
+		// Based on Willem's module';
+		$this->bootstrap = true;
+		$this->config = array(
+			'PS_MOD_EXPCUS_CUSNUM' => array(
+				'value' => 1, // Default value
+				'configurable' => true, // use in _updateConfig, if set to false, the setting will be ignored when saveing settings
+			),
+		);
 
 		parent::__construct();
 
 		$this->displayName = $this->l('Export customers');
-		$this->description = $this->l('Module for export customers to CSV file.');
+		$this->description = $this->l('Export customer info and address to csv file');
 	}
 
-        function install()
-        {
-                if (!parent::install())
-                        return false;
-        return true;
-        }
-
-	function getContent()
+	public function install()
 	{
-		$this->_html = '<hr><h2>'.$this->displayName. ' ' . $this->version . '</h2>';
-		$this->_html.= '<p>'.$this->l('This module allow to make a customers csv file.').'</p>';
+		if (!parent::install()
+			// OR
+		)
+			return false;
+		return true;
+	}
 
+	private function _export()
+	{
 		$delimiter = ";";
 		$toExport = array(
 			array('c.id_customer','Id'),
@@ -44,7 +71,6 @@ class ExportCustomers extends Module
 			array('a.phone','Phone'),
 			array('a.phone_mobile','Mobilephone'),
 		);
-
 		/*
 ADDRESS FIELDS						CUSTOMER FIELDS
 		id_address								id_customer
@@ -77,9 +103,6 @@ ADDRESS FIELDS						CUSTOMER FIELDS
 												date_add
 												date_upd
 			*/
-
-		// If we clicked the export button
-		if (isset($_POST['exportcustomer'])) {
 			$sql = "SELECT ";
 			$end = count($toExport)-1; // count keys in array, and remove 1 to compensate for index 0
 			foreach($toExport as $key=>$fields) {
@@ -88,6 +111,7 @@ ADDRESS FIELDS						CUSTOMER FIELDS
 					$sql .= ", "; // add , to sql
 				}
 			}
+			// cust_id should be changed to PS_MOD_EXPCUS_CUSNUM
 			if (isset($_POST["cust_id"])) {
 				$cust_id = $_POST["cust_id"];
 			}  else {
@@ -153,8 +177,16 @@ ADDRESS FIELDS						CUSTOMER FIELDS
 			$this->_html.= '<a href="'.Tools::getHttpHost(true).__PS_BASE_URI__.'modules/exportcustomers/export_customers_iso.csv" target="_blank">Download export_customers_iso.csv</a><br>';
 
 			return $this->_html;
+	}
 
+	public function getContent()
+	{
+		$this->_html = '<hr><h2>'.$this->displayName. ' ' . $this->version . '</h2>';
+// 		$this->_html.= '<p>'.$this->l('This module allow to make a customers csv file.').'</p>';
 
+		// If we clicked the export button
+		if (isset($_POST['exportcustomer'])) {
+			$this->_html .= $this->_export();
 		}
 		else
 		{
@@ -178,5 +210,62 @@ ADDRESS FIELDS						CUSTOMER FIELDS
 			return $this->_html;
 		}
 	}
+
+	public function renderForm()
+	{
+		$fields_form = array(
+			'form' => array(
+				'legend' => array(
+				'title' => $this->l('Settings'),
+				'icon' => 'icon-cogs'
+			),
+			'input' => array(
+				array(
+					'type' => 'text',
+					'label' => $this->l('Ajax cart'),
+					'name' => 'PS_MOD_EXPCUS_CUSNUM',
+					'hint' => $this->l('The first id to export'),
+				)
+			),
+			'submit' => array(
+				'title' => $this->l('Save'),
+				'class' => 'btn btn-default pull-right'
+				)
+			),
+			// Can I add a second button for export here?
+		);
+
+		$helper = new HelperForm();
+		$helper->show_toolbar = false;
+		$helper->table = $this->table;
+		$lang = new Language((int)Configuration::get('PS_LANG_DEFAULT'));
+		$helper->default_form_language = $lang->id;
+		$helper->allow_employee_form_lang =
+		Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') ? Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') : 0;
+		$this->fields_form = array();
+
+		$helper->identifier = $this->identifier;
+		$helper->submit_action = 'submitBlockCart';
+		$helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
+		.'&configure='.$this->name.'&tab_module='.$this->tab.'&module_name='.$this->name;
+		$helper->token = Tools::getAdminTokenLite('AdminModules');
+		$helper->tpl_vars = array(
+			'fields_value' => $this->getConfigFieldsValues(),
+			'languages' => $this->context->controller->getLanguages(),
+			'id_language' => $this->context->language->id
+		);
+
+		return $helper->generateForm(array($fields_form));
+	}
+
+	public function getConfigFieldsValues()
+	{
+		$fields_value = array();
+		foreach($this->config as $key => $value)
+			$fields_value[$key] = Configuration::get($key);
+
+		return $fields_value;
+	}
+
 }
 ?>
