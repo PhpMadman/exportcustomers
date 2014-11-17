@@ -21,6 +21,7 @@ Options to enable utf8/iso csv.
 	If both disable, auto enable utf8 without error.
 Check what happens if a customer has 2 addresses.
 Rewrite export function to a better code
+Support more customer tabels. such as connections, countr_lang 
 ```
 
 
