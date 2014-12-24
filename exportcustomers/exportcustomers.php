@@ -28,12 +28,16 @@ class ExportCustomers extends Module
 		$this->tab = 'export';
 		$this->version = "2.0";
 		$this->author = 'Madman';
-		// Based on Willem's module';
+		// Based on Willem's module
 		$this->bootstrap = true;
 		$this->config = array(
 			'PS_MOD_EXPCUS_CUSNUM' => array(
 				'value' => 1, // Default value
 				'configurable' => true, // use in _updateConfig, if set to false, the setting will be ignored when saveing settings
+			),
+			'PS_MOD_EXPCUS_DELIMITER' => array(
+				'value' => ';',
+				'configurable' => true,
 			),
 		);
 
@@ -45,64 +49,335 @@ class ExportCustomers extends Module
 
 	public function install()
 	{
-		if (!parent::install()
-			// OR
-		)
+		if (!parent::install() || !$this->installDB() )
 			return false;
+
 		return true;
+	}
+
+
+	function installDB()
+	{
+		$create_table = Db::getInstance()->execute('CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'export_customer_fields` (
+		`id` INT(10) NOT NULL AUTO_INCREMENT,
+		`type` VARCHAR( 255 ) NOT NUL
+		`expcusfield` VARCHAR(255) NOT NULL,
+		`label` VARCHAR(255) NOT NULL,
+		`name` VARCHAR(255) NOT NULL,
+		`active` INT(10) DEFAULT 0,
+		`position` INT(10) DEFAULT 0,
+		PRIMARY KEY (`id`)
+		) ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=utf8;');
+
+		$insert_customer_data = Db::getInstance()->execute("INSERT INTO `"._DB_PREFIX_."export_customer_fields` (`type`,`expcusfield`,`label`,`name`,`position`) VALUES
+		('customer','c.id_customer','Customer ID','Customer ID','1'),
+		('customer','c.id_shop_group','Customer Shop Group ID','Customer Shop Group ID','2'),
+		('customer','c.id_shop','Customer Shop ID','Customer Shop ID','3'),
+		('customer','c.id_gender','Customer Gender ID','Customer Gender ID','4'),
+		('customer','c.id_default_group','Customer Default Group ID','Customer Default Group ID','5'),
+		('customer','c.id_risk','Customer B2B Risk','Customer B2B Risk','6'),
+		('customer','c.company','Customer Company','Customer Company','7'),
+		('customer','c.siret','Customer Siret','Customer Siret','8'),
+		('customer','c.ape','Customer Ape','Customer Ape','9'),
+		('customer','c.firstname','Customer Firstname','Customer Firstname','10'),
+		('customer','c.lastname','Customer Lastname','Customer Lastname','11'),
+		('customer','c.email','Customer Email','Customer Email','12'),
+		('customer','c.passwd','Customer Password Hash','Customer Password Hash','13'),
+		('customer','c.last_passwd_gen','Customer Last Password Gen','Customer Last Password Gen','14'),
+		('customer','c.birthday','Customer Birthday','Customer Birthday','15'),
+		('customer','c.newsletter','Customer Newsletter','Customer Newsletter','16'),
+		('customer','c.ip_registration_newsletter','Customer IP Reg Newsletter','Customer IP Reg Newsletter','17'),
+		('customer','c.newsletter_date_add','Customer Newsletter Date','Customer Newsletter Date','18'),
+		('customer','c.optin','Customer Opt-In','Customer Opt-In','19'),
+		('customer','c.website','Customer Website','Customer Website','20'),
+		('customer','c.outstanding_allow_amount','Customer B2B Allow Amount','Customer B2B Allow Amount','21'),
+		('customer','c.show_public_prices','Customer Show Price','Customer Show Price','22'),
+		('customer','c.max_payment_days','Customer B2B Payment Days','Customer B2B Payment Days','23'),
+		('customer','c.secure_key','Customer Secure Key','Customer Secure Key','24'),
+		('customer','c.note','Customer Note','Customer Note','25'),
+		('customer','c.active','Customer Active','Customer Active','26'),
+		('customer','c.is_guest','Customer Guest','Customer Guest','27'),
+		('customer','c.date_add','Customer Date Add','Customer Date Add','28'),
+		('customer','c.date_upd','Customer Date Update','Customer Date Update','29')
+		");
+
+		$insert_address_data = Db::getInstance()->execute("INSERT INTO `"._DB_PREFIX_."export_customer_fields` (`type`,`expcusfield`,`label`,`name`) VALUES
+		('address','a.id_address','Address ID','Address ID','30'),
+		('address','a.id_country','Address Country ID','Address Country ID','31'),
+		('address','a.id_state','Address State ID','Address State ID','32'),
+		('address','a.id_manufacturer','Address Manufacturer ID','Address Manufacturer ID','33'),
+		('address','a.id_supplier','Address Supplier ID','Address Supplier ID','34'),
+		('address','a.id_warehouse','Address Warehouse ID','Address Warehouse ID','35'),
+		('address','a.alias','Address Alias','Address Alias','36'),
+		('address','a.company','Address Company','Address Company','37'),
+		('address','a.firstname','Address Firstname','Address Firstname','38'),
+		('address','a.lastname','Address Lastname','Address Lastname','39'),
+		('address','a.address1','Address Address1','Address Address1','40'),
+		('address','a.address2','Address Address2','Address Address2','41'),
+		('address','a.postcode','Address Postcode','Address Postcode','42'),
+		('address','a.city','Address City','Address City','43'),
+		('address','a.other','Address Other','Address Other','44'),
+		('address','a.phone','Address Phone','Address Phone','45'),
+		('address','a.phone_mobile','Address Mobilephone','Address Mobilephone','46'),
+		('address','a.vat_number','Address VAT','Address VAT','47'),
+		('address','a.dni','Address DNI','Address DNI','48'),
+		('address','a.date_add','Address Date Add','Address Date Add','49'),
+		('address','a.date_upd','Address Date Update','Address Date Update','50'),
+		('address','a.active','Address Active','Address Activate','51')
+		");
+		if ($create_table && $insert_customer_data && $insert_address_data)
+			return true;
+
+		return false;
+	}
+
+	private function _updateActiveFields()
+	{
+		if (Tools::isSubmit('submitFieldsCustomer'))
+			$type = 'customer';
+		elseif (Tools::isSubmit('submitFieldsAddress'))
+			$type = 'address';
+
+		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`active`,`name` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `type` = \''.$type.'\'');
+		$sqlActive = '';
+		$sqlName = '';
+		$sqlINArray = array();
+		foreach ($result as $field)
+		{
+			// make sure we got the field in $_POST and that the value does not match db value
+			if (isset($_POST[str_replace('.','_',$field['expcusfield']).'_switch']) && $_POST[str_replace('.','_',$field['expcusfield']).'_switch'] != $field['active'])
+			{
+				$sqlActive .= 'WHEN \''.$field['expcusfield'].'\' THEN \'' .$_POST[str_replace('.','_',$field['expcusfield']).'_switch'].'\' '; // Create sql to update value
+				$sqlINArray[$field['expcusfield']] = $field['expcusfield']; // set the field for sql IN
+			}
+
+			if (isset($_POST[str_replace('.','_',$field['expcusfield']).'_name']) && $_POST[str_replace('.','_',$field['expcusfield']).'_name'] != $field['name'])
+			{
+				$sqlName = 'WHEN \''. $field['expcusfield'].'\' THEN \'' .$_POST[str_replace('.','_',$field['expcusfield']).'_name'].'\' '; // Create sql to update value
+				$sqlINArray[$field['expcusfield']] = $field['expcusfield']; // set the field for sql IN
+			}
+		}
+		// make sure we got either name or active to update
+		if ($sqlActive != '' || $sqlName != '')
+		{
+			// build the sql command
+			$sql = 'UPDATE `'._DB_PREFIX_.'export_customer_fields` SET ';
+			// if we got active, add it to sql
+			if ($sqlActive != '')
+				$sql .= '`active` = CASE `expcusfield` '.$sqlActive.' END';
+			// if we got both active and name, we need to add a , at the end of active CASE
+			if ($sqlActive != '' && $sqlName != '')
+				$sql .= ', ';
+			// if we got name, add it to sql
+			if ($sqlName != '')
+				$sql .= '`name` = CASE `expcusfield` '.$sqlName.' END';
+			 // set where with imploded IN array
+			$sql .= ' WHERE `expcusfield` IN(\''.implode('\',\'', $sqlINArray).'\')';
+			 Db::getInstance()->execute($sql);
+		}
+	}
+
+	private function _updatePositions()
+	{
+		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`position` FROM `'._DB_PREFIX_.'export_customer_fields`');
+		$sqlPosition = '';
+		$sqlINArray = array();
+		foreach ($result as $field)
+		{
+			// make sure we got the field in $_POST and that the value does not match db value
+			if (isset($_POST[str_replace('.','_',$field['expcusfield']).'_pos']) && $_POST[str_replace('.','_',$field['expcusfield']).'_pos'] != $field['position'])
+			{
+				$sqlPosition .= 'WHEN \''.$field['expcusfield'].'\' THEN \'' .$_POST[str_replace('.','_',$field['expcusfield']).'_pos'].'\' '; // Create sql to update value
+				$sqlINArray[$field['expcusfield']] = $field['expcusfield']; // set the field for sql IN
+			}
+		}
+
+		if ($sqlPosition != '')
+		{
+			// build the sql command
+			$sql = 'UPDATE `'._DB_PREFIX_.'export_customer_fields` SET ';
+			$sql .= '`position` = CASE `expcusfield` '.$sqlPosition.' END';
+			$sql .= ' WHERE `expcusfield` IN(\''.implode('\',\'', $sqlINArray).'\')';
+			 Db::getInstance()->execute($sql);
+		}
+	}
+
+	public function getContent()
+	{
+		if (Tools::isSubmit('submitGenerell'))
+			$this->_updateConfig();
+		elseif (Tools::isSubmit('submitFieldsCustomer') || Tools::isSubmit('submitFieldsAddress'))
+			$this->_updateActiveFields();
+		elseif (Tools::isSubmit('submitFieldsPositions'))
+			$this->_updatePositions();
+
+		$this->context->smarty->assign(array(
+			'version' => $this->version,
+			'module_name' => $this->displayName,
+			'generell_content' => $this->renderFormGenerell(),
+			'customer_fields_content' => $this->renderFormActiveFields('customer'),
+			'address_fields_content' => $this->renderFormActiveFields('address'),
+			'positions_content' => $this->renderFormPosition(),
+		));
+		return $this->display($this->_path, '/views/templates/admin/admin.tpl');
+	}
+
+	private function renderFormGenerell()
+	{
+		$fields_form = array(
+			'form' => array(
+				'legend' => array(
+				'title' => $this->l('Settings'),
+				'icon' => 'icon-cogs'
+			),
+			'input' => array(
+				array(
+					'type' => 'text',
+					'label' => $this->l('Customer Number'),
+					'name' => 'PS_MOD_EXPCUS_CUSNUM',
+					'hint' => $this->l('The first id to export'),
+				),
+				array(
+					'type' => 'text',
+					'label' => $this->l('Delimiter'),
+					'name' => 'PS_MOD_EXPCUS_DELIMITER',
+					'hint' => $this->l('The delimiter to use in csv file'),
+				)
+			),
+			'submit' => array(
+				'title' => $this->l('Save / Export'),
+				'class' => 'btn btn-default pull-right'
+				)
+			),
+		);
+		$submit = 'submitGenerell';
+		return $this->renderForm($fields_form, $submit);
+	}
+	
+	private function renderFormActiveFields($type)
+	{
+		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`label` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `type` = \''.$type.'\'');
+		foreach ($result as $field)
+		{
+			$input[] = array(
+				'type' => 'switch',
+				'label' => $this->l($field['label']),
+				'name' => $field['expcusfield'].'_switch',
+				'hint' => $this->l('Activate this field'),
+				'values' => array(
+					array(
+						'id' => 'active_on',
+						'value' => 1,
+						'label' => $this->l('Enabled')
+					),
+					array(
+						'id' => 'active_off',
+						'value' => 0,
+						'label' => $this->l('Disabled')
+					),
+				),
+			);
+			$input[] = array(
+					'type' => 'text',
+					'label' => $this->l($field['label']),
+					'name' => $field['expcusfield'].'_name',
+					'hint' => $this->l('CSV Field name'),
+				);
+		}
+
+		$fields_form = array(
+			'form' => array(
+				'legend' => array(
+				'title' => $this->l('Activate '.ucfirst($type).' Fields'),
+				'icon' => 'icon-cogs'
+			),
+			'input' => $input,
+			'submit' => array(
+				'title' => $this->l('Save'),
+				'class' => 'btn btn-default pull-right'
+				)
+			),
+		);
+		$submit = 'submitFields'.ucFirst($type);
+		return $this->renderForm($fields_form, $submit);
+	}
+
+	public function renderFormPosition()
+	{
+		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`name`,`position` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `active` = 1 ORDER BY `position`');
+		foreach ($result as $field)
+		{
+			$input[] = array(
+				'type' => 'text',
+				'label' => $this->l($field['name']),
+				'name' => $field['expcusfield'].'_pos',
+				'hint' => $this->l('Set position in csv')
+			);
+		}
+
+		$fields_form = array(
+			'form' => array(
+				'legend' => array(
+				'title' => $this->l('Set Positions'),
+				'icon' => 'icon-cogs'
+			),
+			'input' => $input,
+			'submit' => array(
+				'title' => $this->l('Save'),
+				'class' => 'btn btn-default pull-right'
+				)
+			),
+		);
+		$submit = 'submitFieldsPositions';
+		return $this->renderForm($fields_form, $submit);
+	}
+
+
+	public function renderForm($fields_form, $submit)
+	{
+		$helper = new HelperForm();
+		$helper->submit_action = $submit;
+		$helper->show_toolbar = false;
+		$helper->table = $this->table;
+		$lang = new Language((int)Configuration::get('PS_LANG_DEFAULT'));
+		$helper->default_form_language = $lang->id;
+		$helper->allow_employee_form_lang =
+		Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') ? Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') : 0;
+		$this->fields_form = array();
+
+		$helper->identifier = $this->identifier;
+		$helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
+		.'&configure='.$this->name.'&tab_module='.$this->tab.'&module_name='.$this->name;
+		$helper->token = Tools::getAdminTokenLite('AdminModules');
+		$helper->tpl_vars = array(
+			'fields_value' => $this->getConfigFieldsValues(),
+			'languages' => $this->context->controller->getLanguages(),
+			'id_language' => $this->context->language->id
+		);
+
+		return $helper->generateForm(array($fields_form));
+	}
+
+	public function getConfigFieldsValues()
+	{
+		$fields_value = array();
+		foreach($this->config as $key => $value)
+			$fields_value[$key] = (Configuration::get($key) ? Configuration::get($key) : $value['value']);
+
+		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`active`,`name`,`position` FROM `'._DB_PREFIX_.'export_customer_fields`');
+		foreach ($result as $field)
+		{
+			$fields_value[$field['expcusfield'].'_switch'] = $field['active'];
+			$fields_value[$field['expcusfield'].'_name'] = $field['name'];
+			$fields_value[$field['expcusfield'].'_pos'] = $field['position'];
+		}
+
+		return $fields_value;
 	}
 
 	private function _export()
 	{
 		$delimiter = ";";
-		$toExport = array(
-			array('c.id_customer','Id'),
-			array('c.firstname','Firstname'),
-			array('c.lastname','Lastname'),
-			array('c.email','Email'),
-			array('c.website','Website'),
-			array('c.siret','Orgnr'),
-			array('c.company','Company'),
-			array('a.firstname','aFirstname'),
-			array('a.lastname','aLastname'),
-			array('a.address1','Address1'),
-			array('a.address2','Address2'),
-			array('a.postcode','Postcode'),
-			array('a.phone','Phone'),
-			array('a.phone_mobile','Mobilephone'),
-		);
-		/*
-ADDRESS FIELDS						CUSTOMER FIELDS
-		id_address								id_customer
-		id_country								id_shop_group
-		id_state									id_shop
-		id_customer								id_gender
-		id_manufacturer							id_default_group
-		id_supplier								id_risk
-		id_warehouse							company
-		alias									siret
-		company								ape
-		lastname								firstname
-		firstname								lastname
-		address1								email
-		address2								passwd
-		postcode								last_passwd_gen
-		city										birthday
-		other									newsletter
-		phone									ip_registration_newsletter
-		phone_mobile							newsletter_date_add
-		vat_number								optin
-		dni										website
-		date_add								outstanding_allow_amount
-		date_upd								show_public_prices
-		active									max_payment_days
-												secure_key
-												note
-												active
-												is_guest
-												date_add
-												date_upd
-			*/
 			$sql = "SELECT ";
 			$end = count($toExport)-1; // count keys in array, and remove 1 to compensate for index 0
 			foreach($toExport as $key=>$fields) {
@@ -111,7 +386,9 @@ ADDRESS FIELDS						CUSTOMER FIELDS
 					$sql .= ", "; // add , to sql
 				}
 			}
-			// cust_id should be changed to PS_MOD_EXPCUS_CUSNUM
+			if (!$customer_id = Configuration::get('PS_MOD_EXPCUS_CUSNUM'))
+				$customer_id = 0;
+			
 			if (isset($_POST["cust_id"])) {
 				$cust_id = $_POST["cust_id"];
 			}  else {
@@ -177,94 +454,6 @@ ADDRESS FIELDS						CUSTOMER FIELDS
 			$this->_html.= '<a href="'.Tools::getHttpHost(true).__PS_BASE_URI__.'modules/exportcustomers/export_customers_iso.csv" target="_blank">Download export_customers_iso.csv</a><br>';
 
 			return $this->_html;
-	}
-
-	public function getContent()
-	{
-		$this->_html = '<hr><h2>'.$this->displayName. ' ' . $this->version . '</h2>';
-// 		$this->_html.= '<p>'.$this->l('This module allow to make a customers csv file.').'</p>';
-
-		// If we clicked the export button
-		if (isset($_POST['exportcustomer'])) {
-			$this->_html .= $this->_export();
-		}
-		else
-		{
-			$file_id = file_get_contents(dirname(__FILE__).'/id.dat');
-			if(!$file_id) {
-				$file_id = 0;
-			}
-			$this->_html .= '<form method="post">
-				This export will start with customer number: <input type="text" value="' . ($file_id+1) . '" name="cust_id" style="width:20px;" /><br>
-				<input type="submit" name="exportcustomer" value="'.$this->l('Export file').'" />
-			</form>';
-			$this->_html .='
-			<h3 style="margin-top:2em;">'.$this->l('Explanation extraction  :').'</h3>
-			<dl>
-				<dt><i class="champ">'.$this->l('Custno').'</i> :</dt><dd style="padding: 0.2em 0 0.6em 2em;">'.$this->l('Identification customers').'</dd>
-				<dt><i class="champ">'.$this->l('Gender;').'</i> :</dt><dd style="padding: 0.2em 0 0.6em 2em;">'.$this->l('(1/2) 1 is a man; 2 is a woman and 9 not known;').'</dd>
-
-			</dl>
-			';
-			$this->_html .= '<hr>';
-			return $this->_html;
-		}
-	}
-
-	public function renderForm()
-	{
-		$fields_form = array(
-			'form' => array(
-				'legend' => array(
-				'title' => $this->l('Settings'),
-				'icon' => 'icon-cogs'
-			),
-			'input' => array(
-				array(
-					'type' => 'text',
-					'label' => $this->l('Ajax cart'),
-					'name' => 'PS_MOD_EXPCUS_CUSNUM',
-					'hint' => $this->l('The first id to export'),
-				)
-			),
-			'submit' => array(
-				'title' => $this->l('Save'),
-				'class' => 'btn btn-default pull-right'
-				)
-			),
-			// Can I add a second button for export here?
-		);
-
-		$helper = new HelperForm();
-		$helper->show_toolbar = false;
-		$helper->table = $this->table;
-		$lang = new Language((int)Configuration::get('PS_LANG_DEFAULT'));
-		$helper->default_form_language = $lang->id;
-		$helper->allow_employee_form_lang =
-		Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') ? Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') : 0;
-		$this->fields_form = array();
-
-		$helper->identifier = $this->identifier;
-		$helper->submit_action = 'submitBlockCart';
-		$helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
-		.'&configure='.$this->name.'&tab_module='.$this->tab.'&module_name='.$this->name;
-		$helper->token = Tools::getAdminTokenLite('AdminModules');
-		$helper->tpl_vars = array(
-			'fields_value' => $this->getConfigFieldsValues(),
-			'languages' => $this->context->controller->getLanguages(),
-			'id_language' => $this->context->language->id
-		);
-
-		return $helper->generateForm(array($fields_form));
-	}
-
-	public function getConfigFieldsValues()
-	{
-		$fields_value = array();
-		foreach($this->config as $key => $value)
-			$fields_value[$key] = Configuration::get($key);
-
-		return $fields_value;
 	}
 
 }
