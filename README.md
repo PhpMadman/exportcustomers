@@ -1,4 +1,7 @@
-PrestaShop-MadModules
+MadModules
+=====================
+
+ExportCustomers
 =====================
 
 A simple module that export customers with address
@@ -35,6 +38,6 @@ Version 2.0
 [-] Fixed module not beeing placed under Export tab in BO
 [*] Moved export code to it's own function
 [+] Added tabbed GUI
-[~] Removed posibilty to export address customer id
+[~] Removed posibilty to export address customer_id
 [+] Added upgrade code
 ```
