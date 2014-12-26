@@ -23,6 +23,8 @@ Support more customer tabels. such as connections, country_lang
 Select  for export customers with newsleter / no newsletter / both
 a.other can have r\n, use a  str_replace to replaced it, based on idea from rufovi
 add support for reading a $toExport file and fix the mysql table
+Create tags for module versions, make relleases. Zip is then named MadModules-exportcustomer-2.0
+Add link to /releases in readme
 ```
 
 
