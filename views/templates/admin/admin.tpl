@@ -1,4 +1,5 @@
 <h2>{$module_name} {$version}</h2>
+{$debug}
 <div class="panel">
 	<ul id="tabExportCustomers" class="nav nav-tabs">
 		<li class="active"><a href="#generell">Generell</a></li>

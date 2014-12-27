@@ -32,11 +32,15 @@ class ExportCustomers extends Module
 		$this->bootstrap = true;
 		$this->config = array(
 			'PS_MOD_EXPCUS_CUSNUM' => array(
-				'value' => 1, // Default value
+				'value' => 0, // Default value
 				'configurable' => true, // use in _updateConfig, if set to false, the setting will be ignored when saveing settings
 			),
 			'PS_MOD_EXPCUS_DELIMITER' => array(
 				'value' => ';',
+				'configurable' => true,
+			),
+			'PS_MOD_EXPCUS_UTF8' => array(
+				'value' => 1,
 				'configurable' => true,
 			),
 		);
@@ -202,10 +206,106 @@ class ExportCustomers extends Module
 		}
 	}
 
+	private function _updateConfig()
+	{
+		foreach ($this->config as $key => $value)
+			if (isset($value['configurable']) && $value['configurable'])
+				if (Tools::getValue($key) != '')
+					Configuration::updateValue($key, Tools::getValue($key));
+	}
+
+	private function _runExport()
+	{
+		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`name`,`position` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `active` = 1 ORDER BY `position`');
+		$sqlNameMerge = array();
+		$sqlConstruct = array();
+		foreach ($result as $field)
+		{
+			// if name is in array
+			if (isset($sqlNameMerge[$field['name']]))
+				// get the index and add the field to sub-aray
+				$sqlConstruct[$sqlNameMerge[$field['name']]]['expcusfields'][] = $field['expcusfield'];
+			else
+			{
+				// else add field to new index
+				$sqlConstruct[] = array('name' => $field['name'], 'expcusfields' => array($field['expcusfield']));
+				// add name and index to array
+				$sqlNameMerge[$field['name']] = count($sqlConstruct)-1;
+			}
+		}
+
+		$sqlCmd = '';
+		foreach ($sqlConstruct as $sqlInfo)
+		{
+			if (isset($sqlInfo['expcusfields'][1]))
+			{
+				$field = implode(', ', $sqlInfo['expcusfields']);
+				$index = 'CONCAT_WS(\' \','.$field.')';
+			}
+			else
+				$index = $sqlInfo['expcusfields'][0];
+
+			$sqlCmd .= $index.' AS \''.$sqlInfo['name'].'\', ';
+		}
+		$sqlCmd = substr($sqlCmd, 0, -2);
+
+		$sql = 'SELECT '.$sqlCmd.' FROM '._DB_PREFIX_.'customer c
+		LEFT JOIN '._DB_PREFIX_.'address a ON (c.id_customer = a.id_customer)
+		WHERE c.id_customer > '.Configuration::get('PS_MOD_EXPCUS_CUSNUM').' AND a.deleted = 0 AND c.deleted = 0
+		ORDER BY c.id_customer ASC';
+
+		$csvData = Db::getInstance()->executeS($sql);
+
+		$delimiter = Configuration::get('PS_MOD_EXPCUS_DELIMITER');
+		$csvNames = array();
+		foreach ($sqlNameMerge as $name => $pos)
+			$csvNames[] = $name;
+
+		$csvHeader = implode($delimiter, $csvNames);
+
+		$sqlNameMerge = null; // Not needed anymore and must commit seppuku
+		$csvNames = null;
+
+		$utf8 = Configuration::get('PS_MOD_EXPCUS_UTF8');
+		$csvFile = fopen(dirname(__FILE__).'/export_customers_'.($utf8 ? 'utf8' : 'iso').'.csv', 'w');
+		fwrite($csvFile, $csvHeader."\r\n");
+
+		$csvString = '';
+		foreach ($csvData as $line)
+		{
+			$csvString .= str_replace(array("\n", "\r"), ' / ' , implode($delimiter, $line))."\r\n"; // use this awsome code to create one line of csv
+		}
+
+		if (!$utf8)
+			$csvString = utf8_decode($csvString);
+
+		fwrite($csvFile, $csvString);
+
+		return $this->displayConfirmation($sql);
+
+		//  TODO start extending with diffrent merge seperator, gender replace, country replace and so on.
+
+		// Get active fields from sql
+		// build the select
+			// how do I check if I should merge two fields?
+			// reverse the construct array, key base is name, and if exists, they need to be CONCAT_WS
+		// get customer number
+		// write sql with join tabels
+		// prepare the csv data
+		// check if iso or utf8
+		// create csv
+		// ? change customer number to highest id - or remove that feature?
+		// Not used by default, ask on forum, does anyine use it, if so, it should be an option
+	}
+
 	public function getContent()
 	{
+		$debug = '';
 		if (Tools::isSubmit('submitGenerell'))
+		{
 			$this->_updateConfig();
+			$debug = $this->_runExport();
+		}
 		elseif (Tools::isSubmit('submitFieldsCustomer') || Tools::isSubmit('submitFieldsAddress'))
 			$this->_updateActiveFields();
 		elseif (Tools::isSubmit('submitFieldsPositions'))
@@ -218,6 +318,7 @@ class ExportCustomers extends Module
 			'customer_fields_content' => $this->renderFormActiveFields('customer'),
 			'address_fields_content' => $this->renderFormActiveFields('address'),
 			'positions_content' => $this->renderFormPosition(),
+			'debug' => $debug,
 		));
 		return $this->display($this->_path, '/views/templates/admin/admin.tpl');
 	}
@@ -235,14 +336,32 @@ class ExportCustomers extends Module
 					'type' => 'text',
 					'label' => $this->l('Customer Number'),
 					'name' => 'PS_MOD_EXPCUS_CUSNUM',
-					'hint' => $this->l('The first id to export'),
+					'hint' => $this->l('First dd must be higher then this number (number not included in export)'),
 				),
 				array(
 					'type' => 'text',
 					'label' => $this->l('Delimiter'),
 					'name' => 'PS_MOD_EXPCUS_DELIMITER',
 					'hint' => $this->l('The delimiter to use in csv file'),
-				)
+				),
+				array(
+					'type' => 'switch',
+					'label' => $this->l('Utf8 encoding'),
+					'name' => 'PS_MOD_EXPCUS_UTF8',
+					'hint' => $this->l('Set the encoding of the file'),
+					'values' => array(
+						array(
+							'id' => 'active_on',
+							'value' => 1,
+							'label' => $this->l('Enabled')
+						),
+						array(
+							'id' => 'active_off',
+							'value' => 0,
+							'label' => $this->l('Disabled')
+						),
+					),
+				),
 			),
 			'submit' => array(
 				'title' => $this->l('Save / Export'),
