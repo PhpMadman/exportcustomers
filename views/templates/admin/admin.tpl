@@ -1,5 +1,10 @@
 <h2>{$module_name} {$version}</h2>
 {$debug}
+{if isset($download_link)}
+	<div class="conf confirm alert alert-success">
+		{l s='Export completed. Download link: ' mod='exportcustomers'}{$download_link}
+	</div>
+{/if}
 <div class="panel">
 	<ul id="tabExportCustomers" class="nav nav-tabs">
 		<li class="active"><a href="#generell">Generell</a></li>

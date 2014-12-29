@@ -43,6 +43,19 @@ class ExportCustomers extends Module
 				'value' => 1,
 				'configurable' => true,
 			),
+			'PS_MOD_EXPCUS_MERGE_DELIMITER' => array(
+				'value' => ' ',
+				'configurable' => true,
+			),
+			'PS_MOD_EXPCUS_CUSTYPE' => array(
+				'value' => 2,
+				'configurable' => true,
+			),
+			'PS_MOD_EXPCUS_NEWSLETTER' => array(
+				'value' => 2,
+				'configurable' => true,
+			),
+			// renderFormGenerell
 		);
 
 		parent::__construct();
@@ -210,8 +223,8 @@ class ExportCustomers extends Module
 	{
 		foreach ($this->config as $key => $value)
 			if (isset($value['configurable']) && $value['configurable'])
-				if (Tools::getValue($key) != '')
-					Configuration::updateValue($key, Tools::getValue($key));
+				if ($_POST[$key] != '')
+					Configuration::updateValue($key, $_POST[$key]);
 	}
 
 	private function _runExport()
@@ -219,6 +232,7 @@ class ExportCustomers extends Module
 		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`name`,`position` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `active` = 1 ORDER BY `position`');
 		$sqlNameMerge = array();
 		$sqlConstruct = array();
+		$mergeDelimiter = Configuration::get('PS_MOD_EXPCUS_MERGE_DELIMITER');
 		foreach ($result as $field)
 		{
 			// if name is in array
@@ -240,7 +254,7 @@ class ExportCustomers extends Module
 			if (isset($sqlInfo['expcusfields'][1]))
 			{
 				$field = implode(', ', $sqlInfo['expcusfields']);
-				$index = 'CONCAT_WS(\' \','.$field.')';
+				$index = 'CONCAT_WS(\''.$mergeDelimiter.'\', '.$field.')';
 			}
 			else
 				$index = $sqlInfo['expcusfields'][0];
@@ -252,12 +266,16 @@ class ExportCustomers extends Module
 		$sql = 'SELECT '.$sqlCmd.' FROM '._DB_PREFIX_.'customer c
 		LEFT JOIN '._DB_PREFIX_.'address a ON (c.id_customer = a.id_customer)
 		WHERE c.id_customer > '.Configuration::get('PS_MOD_EXPCUS_CUSNUM').' AND a.deleted = 0 AND c.deleted = 0
+		AND c.is_guest != '.Configuration::get('PS_MOD_EXPCUS_CUSTYPE').'
+		AND c.newsletter != '.Configuration::get('PS_MOD_EXPCUS_NEWSLETTER').'
 		ORDER BY c.id_customer ASC';
 
-		$csvData = Db::getInstance()->executeS($sql);
-
+		// prepare variabels
 		$delimiter = Configuration::get('PS_MOD_EXPCUS_DELIMITER');
 		$csvNames = array();
+		$utf8 = Configuration::get('PS_MOD_EXPCUS_UTF8');
+		$csvString = '';
+
 		foreach ($sqlNameMerge as $name => $pos)
 			$csvNames[] = $name;
 
@@ -266,11 +284,10 @@ class ExportCustomers extends Module
 		$sqlNameMerge = null; // Not needed anymore and must commit seppuku
 		$csvNames = null;
 
-		$utf8 = Configuration::get('PS_MOD_EXPCUS_UTF8');
 		$csvFile = fopen(dirname(__FILE__).'/export_customers_'.($utf8 ? 'utf8' : 'iso').'.csv', 'w');
 		fwrite($csvFile, $csvHeader."\r\n");
 
-		$csvString = '';
+		$csvData = Db::getInstance()->executeS($sql);
 		foreach ($csvData as $line)
 		{
 			$csvString .= str_replace(array("\n", "\r"), ' / ' , implode($delimiter, $line))."\r\n"; // use this awsome code to create one line of csv
@@ -305,6 +322,8 @@ class ExportCustomers extends Module
 		{
 			$this->_updateConfig();
 			$debug = $this->_runExport();
+			$this->context->smarty->assign('download_link',
+			'<a href="'.Tools::getHttpHost(true).__PS_BASE_URI__.'modules/exportcustomers/export_customers_'.(Configuration::get('PS_MOD_EXPCUS_UTF8') ? 'utf8' : 'iso').'.csv" target="_blank">Download export_customers_utf8.csv</a>');
 		}
 		elseif (Tools::isSubmit('submitFieldsCustomer') || Tools::isSubmit('submitFieldsAddress'))
 			$this->_updateActiveFields();
@@ -325,6 +344,14 @@ class ExportCustomers extends Module
 
 	private function renderFormGenerell()
 	{
+		$custype = array(array('value' => 2, 'name' => $this->l('Both'),),
+			array('value' => 1, 'name' => $this->l('Customer'),),
+			array('value' => 0, 'name' => $this->l('Guest'),),
+		);
+		 $newsletter = array(array('value' => 2, 'name' => $this->l('Does not matter'),),
+			array('value' => 1, 'name' => $this->l('With newsletter'),),
+			array('value' => 0, 'name' => $this->l('Without newsletter'),),
+		);
 		$fields_form = array(
 			'form' => array(
 				'legend' => array(
@@ -360,6 +387,34 @@ class ExportCustomers extends Module
 							'value' => 0,
 							'label' => $this->l('Disabled')
 						),
+					),
+				),
+				array(
+					'type' => 'text',
+					'label' => $this->l('Merge delimiter'),
+					'name' => 'PS_MOD_EXPCUS_MERGE_DELIMITER',
+					'hint' => $this->l('The merge delimiter to use in csv file'),
+				),
+				array(
+					'type' => 'select',
+					'label' => $this->l('Customer / Guest'),
+					'name' => 'PS_MOD_EXPCUS_CUSTYPE',
+					'hint' => $this->l('Select what type of customers to export'),
+					'options' => array(
+						'query' => $custype,
+						'id' => 'value',
+						'name' => 'name',
+					),
+				),
+				array(
+					'type' => 'select',
+					'label' => $this->l('Newsletter'),
+					'name' => 'PS_MOD_EXPCUS_NEWSLETTER',
+					'hint' => $this->l('Select if export with newsletter or not'),
+					'options' => array(
+						'query' => $newsletter,
+						'id' => 'value',
+						'name' => 'name',
 					),
 				),
 			),
@@ -481,7 +536,8 @@ class ExportCustomers extends Module
 	{
 		$fields_value = array();
 		foreach($this->config as $key => $value)
-			$fields_value[$key] = (Configuration::get($key) ? Configuration::get($key) : $value['value']);
+			$fields_value[$key] = (Configuration::get($key) >= 0 ? Configuration::get($key) : $value['value']); // >=  0 is requierd, due to the fact that we use values with 0
+
 
 		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`active`,`name`,`position` FROM `'._DB_PREFIX_.'export_customer_fields`');
 		foreach ($result as $field)
@@ -493,87 +549,5 @@ class ExportCustomers extends Module
 
 		return $fields_value;
 	}
-
-	private function _export()
-	{
-		$delimiter = ";";
-			$sql = "SELECT ";
-			$end = count($toExport)-1; // count keys in array, and remove 1 to compensate for index 0
-			foreach($toExport as $key=>$fields) {
-				$sql .= $fields[0] . " AS " . $fields[1]; // Add sql
-				if($key != $end) { //if not last key
-					$sql .= ", "; // add , to sql
-				}
-			}
-			if (!$customer_id = Configuration::get('PS_MOD_EXPCUS_CUSNUM'))
-				$customer_id = 0;
-			
-			if (isset($_POST["cust_id"])) {
-				$cust_id = $_POST["cust_id"];
-			}  else {
-				$cust_id = file_get_contents(dirname(__FILE__).'/id.dat');
-				if(!$cust_id) {
-					$cust_id = 0;
-				}
-			}
-
-			// this sql limits the export to the customers that have address
-			$sql .= " FROM "._DB_PREFIX_."customer c, "._DB_PREFIX_."address a
-			WHERE c.id_customer = a.id_customer AND c.id_customer > $cust_id AND a.deleted = 0 AND c.deleted = 0
-			ORDER BY a.id_customer ASC";
-			// id_customer must be higher then cust_id. So if is is 6, customer that is exported will be 7
-
-			$orderlist = Db::getInstance()->ExecuteS($sql);
-
-			// Create the utf8 csv file
-			$file = fopen(dirname(__FILE__).'/export_customers_utf8.csv', 'w');
-				$firstline = "";
-			foreach($toExport as $key=>$fields) {
-
-				$firstline .= $fields[1];
-				if($key != $end) { //if not last key
-					$firstline .= $delimiter;
-				}
-			}
-			fwrite($file, $firstline."\r\n");
-			foreach($orderlist AS $orderline){
-			$string = implode($delimiter, $orderline);
-				fwrite($file, $string ."\r\n");
-			}
-			fclose($file);
-
-			// Create the iso csv file
-			$file = fopen(dirname(__FILE__).'/export_customers_iso.csv', 'w');
-				$firstline = "";
-			foreach($toExport as $key=>$fields) {
-
-				$firstline .= $fields[1];
-				if($key != $end) { //if not last key
-					$firstline .= $delimiter;
-				}
-			}
-			fwrite($file, $firstline."\r\n");
-			foreach($orderlist AS $orderline){
-			$string = implode($delimiter, $orderline);
-				fwrite($file, utf8_decode($string) ."\r\n");
-			}
-			fclose($file);
-
-			// Get the id of the latest customer
-			$sql = "SELECT MAX(id_customer) FROM "._DB_PREFIX_."customer";
-			$maxid = Db::getInstance()->ExecuteS($sql);
-			$file = fopen(dirname(__FILE__).'/id.dat', 'w');
-			fwrite($file,$maxid[0]['MAX(id_customer)']);
-			fclose($file);
-
-			$this->_html.= 'Export completed<br>';
-			$this->_html .= "Next export will start at customer nr: " . ($maxid[0]['MAX(id_customer)']+1) . "<br><br>";
-
-			$this->_html.= '<a href="'.Tools::getHttpHost(true).__PS_BASE_URI__.'modules/exportcustomers/export_customers_utf8.csv" target="_blank">Download export_customers_utf8.csv</a><br>';
-			$this->_html.= '<a href="'.Tools::getHttpHost(true).__PS_BASE_URI__.'modules/exportcustomers/export_customers_iso.csv" target="_blank">Download export_customers_iso.csv</a><br>';
-
-			return $this->_html;
-	}
-
 }
 ?>
