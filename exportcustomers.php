@@ -55,6 +55,10 @@ class ExportCustomers extends Module
 				'value' => 2,
 				'configurable' => true,
 			),
+			'PS_MOD_EXPCUS_GENDER_TEXT' => array(
+				'value' => 0,
+				'configurable' => true,
+			),
 			// renderFormGenerell
 		);
 
@@ -229,6 +233,7 @@ class ExportCustomers extends Module
 
 	private function _runExport()
 	{
+		$debug = '';
 		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`name`,`position` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `active` = 1 ORDER BY `position`');
 		$sqlNameMerge = array();
 		$sqlConstruct = array();
@@ -275,6 +280,7 @@ class ExportCustomers extends Module
 		$csvNames = array();
 		$utf8 = Configuration::get('PS_MOD_EXPCUS_UTF8');
 		$csvString = '';
+// 		$rntReplace = Configuration::get('PS_MOD_EXPCUS_RNT_REP');
 
 		foreach ($sqlNameMerge as $name => $pos)
 			$csvNames[] = $name;
@@ -287,18 +293,34 @@ class ExportCustomers extends Module
 		$csvFile = fopen(dirname(__FILE__).'/export_customers_'.($utf8 ? 'utf8' : 'iso').'.csv', 'w');
 		fwrite($csvFile, $csvHeader."\r\n");
 
-		$csvData = Db::getInstance()->executeS($sql);
-		foreach ($csvData as $line)
+		$csvData = Db::getInstance()->ExecuteS($sql);
+
+		// Gender modifier
+		if (Configuration::get('PS_MOD_EXPCUS_GENDER_TEXT'))
 		{
-			$csvString .= str_replace(array("\n", "\r"), ' / ' , implode($delimiter, $line))."\r\n"; // use this awsome code to create one line of csv
+			$genderName = Db::getInstance()->getValue('SELECT `name` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `expcusfield` = \'c.id_gender\'');
+			$debug .= 'GenderName : '.$genderName;
+			$genderLetter = array(1 => 'M', 2 => 'F');
+			foreach ($csvData as &$line)
+			{
+				if (isset($line[$genderName]))
+					if (isset($genderLetter[$line[$genderName]]))
+						$line[$genderName] = $genderLetter[$line[$genderName]];
+					else
+						$line[$genderName] = 'N';
+			}
 		}
+		foreach ($csvData as $line)
+			$csvString .= str_replace(array("\n", "\r"), ' / ' , implode($delimiter, $line))."\r\n"; // use this awsome code to create one line of csv
 
 		if (!$utf8)
 			$csvString = utf8_decode($csvString);
 
 		fwrite($csvFile, $csvString);
 
-		return $this->displayConfirmation($sql);
+		$debug .= $this->displayConfirmation($sql);
+		return $debug;
+// 		$debug .= p(Gender::getGenders());
 
 		//  TODO start extending with diffrent merge seperator, gender replace, country replace and so on.
 
@@ -391,7 +413,7 @@ class ExportCustomers extends Module
 				),
 				array(
 					'type' => 'text',
-					'label' => $this->l('Merge delimiter'),
+					'label' => $this->l('Merge delimiter (default: (space) )'),
 					'name' => 'PS_MOD_EXPCUS_MERGE_DELIMITER',
 					'hint' => $this->l('The merge delimiter to use in csv file'),
 				),
@@ -406,6 +428,12 @@ class ExportCustomers extends Module
 						'name' => 'name',
 					),
 				),
+// 				array(
+// 					'type' => 'text',
+// 					'label' => $this->l('Newline replacement'),
+// 					'name' => 'PS_MOD_EXPCUS_RNT_REP',
+// 					'hint' => $this->l('Replace newlines and tabs in fields with this string'),
+// 				),
 				array(
 					'type' => 'select',
 					'label' => $this->l('Newsletter'),
@@ -415,6 +443,24 @@ class ExportCustomers extends Module
 						'query' => $newsletter,
 						'id' => 'value',
 						'name' => 'name',
+					),
+				),
+				array(
+					'type' => 'switch',
+					'label' => $this->l('Replace Gender ID'),
+					'name' => 'PS_MOD_EXPCUS_GENDER_TEXT',
+					'hint' => $this->l('Replace Gender id with the letters:').' M / F / N',
+					'values' => array(
+						array(
+							'id' => 'active_on',
+							'value' => 1,
+							'label' => $this->l('Enabled')
+						),
+						array(
+							'id' => 'active_off',
+							'value' => 0,
+							'label' => $this->l('Disabled')
+						),
 					),
 				),
 			),

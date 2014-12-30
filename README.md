@@ -34,4 +34,5 @@ Version 2.0
 [+] Added code to replace new lines with / so csv won't break - thanks rufovi
 [+] Added option only export customers / guests / both
 [+] Added option to only export with newsletter
+[+] Added option for gender text
 ```
