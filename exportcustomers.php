@@ -26,7 +26,7 @@ class ExportCustomers extends Module
 	{
 		$this->name = 'exportcustomers';
 		$this->tab = 'export';
-		$this->version = "2.0";
+		$this->version = '2.0';
 		$this->author = 'Madman';
 		// Based on Willem's module
 		$this->bootstrap = true;
@@ -59,7 +59,18 @@ class ExportCustomers extends Module
 				'value' => 0,
 				'configurable' => true,
 			),
-			// renderFormGenerell
+			'PS_MOD_EXPCUS_COUNTRY_TEXT' => array(
+				'value' => 0,
+				'configurable' => true,
+			),
+			'PS_MOD_EXPCUS_CUS_ON' => array(
+				'value' => 1,
+				'configurable' => true,
+			),
+			'PS_MOD_EXPCUS_RNT_REP' => array(
+				'value' => ' / ',
+				'configurable' => true,
+			),
 		);
 
 		parent::__construct();
@@ -75,7 +86,6 @@ class ExportCustomers extends Module
 
 		return true;
 	}
-
 
 	function installDB()
 	{
@@ -122,7 +132,7 @@ class ExportCustomers extends Module
 		('customer','c.date_upd','Customer Date Update','Customer Date Update','29')
 		");
 
-		$insert_address_data = Db::getInstance()->execute("INSERT INTO `"._DB_PREFIX_."export_customer_fields` (`type`,`expcusfield`,`label`,`name`) VALUES
+		$insert_address_data = Db::getInstance()->execute("INSERT INTO `"._DB_PREFIX_."export_customer_fields` (`type`,`expcusfield`,`label`,`name`,`position`) VALUES
 		('address','a.id_address','Address ID','Address ID','30'),
 		('address','a.id_country','Address Country ID','Address Country ID','31'),
 		('address','a.id_state','Address State ID','Address State ID','32'),
@@ -146,7 +156,13 @@ class ExportCustomers extends Module
 		('address','a.date_upd','Address Date Update','Address Date Update','50'),
 		('address','a.active','Address Active','Address Activate','51')
 		");
-		if ($create_table && $insert_customer_data && $insert_address_data)
+
+		/** -Special- */
+		$insert_special_data = Db::getInstance()->execute("INSERT INTO `"._DB_PREFIX_."export_customer_fields` (`type`,`expcusfield`,`label`,`name`,`position`) VALUES
+		('special','lastvisit','Last Visit','Last Visit','52')
+		");
+		/* -Special- **/
+		if ($create_table && $insert_customer_data && $insert_address_data && $insert_special_data)
 			return true;
 
 		return false;
@@ -158,6 +174,8 @@ class ExportCustomers extends Module
 			$type = 'customer';
 		elseif (Tools::isSubmit('submitFieldsAddress'))
 			$type = 'address';
+		elseif (Tools::isSubmit('submitFieldsSpecial'))
+			$type = 'special';
 
 		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`active`,`name` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `type` = \''.$type.'\'');
 		$sqlActive = '';
@@ -238,7 +256,7 @@ class ExportCustomers extends Module
 		$sqlNameMerge = array();
 		$sqlConstruct = array();
 		$mergeDelimiter = Configuration::get('PS_MOD_EXPCUS_MERGE_DELIMITER');
-		foreach ($result as $field)
+		foreach ($result as &$field)
 		{
 			// if name is in array
 			if (isset($sqlNameMerge[$field['name']]))
@@ -246,10 +264,24 @@ class ExportCustomers extends Module
 				$sqlConstruct[$sqlNameMerge[$field['name']]]['expcusfields'][] = $field['expcusfield'];
 			else
 			{
-				// else add field to new index
+				// replace country with name
+				if ($field['expcusfield'] == 'a.id_country' && Configuration::get('PS_MOD_EXPCUS_COUNTRY_TEXT'))
+					$field['expcusfield'] = '(SELECT `name` FROM `'._DB_PREFIX_.'country_lang` WHERE `id_lang` = '.Context::getContext()->language->id.' AND `id_country` = a.id_country)';
+
+				/** -Special- */
+				// Special code for lastvisit key
+				if ($field['expcusfield'] == 'lastvisit')
+					$field['expcusfield'] = '(SELECT co.date_add FROM '._DB_PREFIX_.'guest g
+					LEFT JOIN '._DB_PREFIX_.'connections co ON co.id_guest = g.id_guest
+					WHERE g.id_customer = c.id_customer ORDER BY co.date_add DESC
+					LIMIT 1 )';
+				/* -Special- **/
+
+				// add name and index to array
+				$sqlNameMerge[$field['name']] = count($sqlConstruct); // adding this before adding to construct, will same math of -1
+				// add field to new index
 				$sqlConstruct[] = array('name' => $field['name'], 'expcusfields' => array($field['expcusfield']));
 				// add name and index to array
-				$sqlNameMerge[$field['name']] = count($sqlConstruct)-1;
 			}
 		}
 
@@ -271,6 +303,7 @@ class ExportCustomers extends Module
 		$sql = 'SELECT '.$sqlCmd.' FROM '._DB_PREFIX_.'customer c
 		LEFT JOIN '._DB_PREFIX_.'address a ON (c.id_customer = a.id_customer)
 		WHERE c.id_customer > '.Configuration::get('PS_MOD_EXPCUS_CUSNUM').' AND a.deleted = 0 AND c.deleted = 0
+		AND c.active != '.Configuration::get('PS_MOD_EXPCUS_CUS_ON').'
 		AND c.is_guest != '.Configuration::get('PS_MOD_EXPCUS_CUSTYPE').'
 		AND c.newsletter != '.Configuration::get('PS_MOD_EXPCUS_NEWSLETTER').'
 		ORDER BY c.id_customer ASC';
@@ -280,7 +313,7 @@ class ExportCustomers extends Module
 		$csvNames = array();
 		$utf8 = Configuration::get('PS_MOD_EXPCUS_UTF8');
 		$csvString = '';
-// 		$rntReplace = Configuration::get('PS_MOD_EXPCUS_RNT_REP');
+		$rntReplace = Configuration::get('PS_MOD_EXPCUS_RNT_REP');
 
 		foreach ($sqlNameMerge as $name => $pos)
 			$csvNames[] = $name;
@@ -311,28 +344,16 @@ class ExportCustomers extends Module
 			}
 		}
 		foreach ($csvData as $line)
-			$csvString .= str_replace(array("\n", "\r"), ' / ' , implode($delimiter, $line))."\r\n"; // use this awsome code to create one line of csv
+			$csvString .= str_replace(array("\r\n", "\n", "\r"), $rntReplace , implode($delimiter, $line))."\r\n"; // use this awsome code to create one line of csv
 
 		if (!$utf8)
 			$csvString = utf8_decode($csvString);
 
 		fwrite($csvFile, $csvString);
 
-		$debug .= $this->displayConfirmation($sql);
+// 		$debug .= $this->displayConfirmation($sql);
 		return $debug;
-// 		$debug .= p(Gender::getGenders());
 
-		//  TODO start extending with diffrent merge seperator, gender replace, country replace and so on.
-
-		// Get active fields from sql
-		// build the select
-			// how do I check if I should merge two fields?
-			// reverse the construct array, key base is name, and if exists, they need to be CONCAT_WS
-		// get customer number
-		// write sql with join tabels
-		// prepare the csv data
-		// check if iso or utf8
-		// create csv
 		// ? change customer number to highest id - or remove that feature?
 		// Not used by default, ask on forum, does anyine use it, if so, it should be an option
 	}
@@ -345,9 +366,9 @@ class ExportCustomers extends Module
 			$this->_updateConfig();
 			$debug = $this->_runExport();
 			$this->context->smarty->assign('download_link',
-			'<a href="'.Tools::getHttpHost(true).__PS_BASE_URI__.'modules/exportcustomers/export_customers_'.(Configuration::get('PS_MOD_EXPCUS_UTF8') ? 'utf8' : 'iso').'.csv" target="_blank">Download export_customers_utf8.csv</a>');
+				'<a href="'.Tools::getHttpHost(true).__PS_BASE_URI__.'modules/exportcustomers/export_customers_'.(Configuration::get('PS_MOD_EXPCUS_UTF8') ? 'utf8' : 'iso').'.csv" target="_blank">export_customers_utf8.csv</a>');
 		}
-		elseif (Tools::isSubmit('submitFieldsCustomer') || Tools::isSubmit('submitFieldsAddress'))
+		elseif (Tools::isSubmit('submitFieldsCustomer') || Tools::isSubmit('submitFieldsAddress') || Tools::isSubmit('submitFieldsSpecial'))
 			$this->_updateActiveFields();
 		elseif (Tools::isSubmit('submitFieldsPositions'))
 			$this->_updatePositions();
@@ -358,6 +379,7 @@ class ExportCustomers extends Module
 			'generell_content' => $this->renderFormGenerell(),
 			'customer_fields_content' => $this->renderFormActiveFields('customer'),
 			'address_fields_content' => $this->renderFormActiveFields('address'),
+			'special_fields_content' => $this->renderFormActiveFields('special'),
 			'positions_content' => $this->renderFormPosition(),
 			'debug' => $debug,
 		));
@@ -370,10 +392,28 @@ class ExportCustomers extends Module
 			array('value' => 1, 'name' => $this->l('Customer'),),
 			array('value' => 0, 'name' => $this->l('Guest'),),
 		);
-		 $newsletter = array(array('value' => 2, 'name' => $this->l('Does not matter'),),
+		$newsletter = array(array('value' => 2, 'name' => $this->l('Does not matter'),),
 			array('value' => 1, 'name' => $this->l('With newsletter'),),
 			array('value' => 0, 'name' => $this->l('Without newsletter'),),
 		);
+		$activeCus = array(array('value' => 2, 'name' => $this->l('All customers'),),
+			array('value' => 1, 'name' => $this->l('Disabled only'),),
+			array('value' => 0, 'name' => $this->l('Enabled only'),),
+		);
+		$switchValues = array(
+						array(
+							'id' => 'active_on',
+							'value' => 1,
+							'label' => $this->l('Enabled')
+						),
+						array(
+							'id' => 'active_off',
+							'value' => 0,
+							'label' => $this->l('Disabled')
+						),
+					);
+		$switchType = _setSwitchType();
+
 		$fields_form = array(
 			'form' => array(
 				'legend' => array(
@@ -394,22 +434,11 @@ class ExportCustomers extends Module
 					'hint' => $this->l('The delimiter to use in csv file'),
 				),
 				array(
-					'type' => 'switch',
+					'type' => $switchType,
 					'label' => $this->l('Utf8 encoding'),
 					'name' => 'PS_MOD_EXPCUS_UTF8',
 					'hint' => $this->l('Set the encoding of the file'),
-					'values' => array(
-						array(
-							'id' => 'active_on',
-							'value' => 1,
-							'label' => $this->l('Enabled')
-						),
-						array(
-							'id' => 'active_off',
-							'value' => 0,
-							'label' => $this->l('Disabled')
-						),
-					),
+					'values' => $switchValues,
 				),
 				array(
 					'type' => 'text',
@@ -428,12 +457,12 @@ class ExportCustomers extends Module
 						'name' => 'name',
 					),
 				),
-// 				array(
-// 					'type' => 'text',
-// 					'label' => $this->l('Newline replacement'),
-// 					'name' => 'PS_MOD_EXPCUS_RNT_REP',
-// 					'hint' => $this->l('Replace newlines and tabs in fields with this string'),
-// 				),
+				array(
+					'type' => 'text',
+					'label' => $this->l('Newline replacement'),
+					'name' => 'PS_MOD_EXPCUS_RNT_REP',
+					'hint' => $this->l('Replace newlines and tabs in fields with this string'),
+				),
 				array(
 					'type' => 'select',
 					'label' => $this->l('Newsletter'),
@@ -446,21 +475,28 @@ class ExportCustomers extends Module
 					),
 				),
 				array(
-					'type' => 'switch',
+					'type' => $switchType,
 					'label' => $this->l('Replace Gender ID'),
 					'name' => 'PS_MOD_EXPCUS_GENDER_TEXT',
 					'hint' => $this->l('Replace Gender id with the letters:').' M / F / N',
-					'values' => array(
-						array(
-							'id' => 'active_on',
-							'value' => 1,
-							'label' => $this->l('Enabled')
-						),
-						array(
-							'id' => 'active_off',
-							'value' => 0,
-							'label' => $this->l('Disabled')
-						),
+					'values' => $switchValues,
+				),
+				array(
+					'type' => $switchType,
+					'label' => $this->l('Replace Country ID'),
+					'name' => 'PS_MOD_EXPCUS_COUNTRY_TEXT',
+					'hint' => $this->l('Replace Country id with name using your language'),
+					'values' => $switchValues,
+				),
+				array(
+					'type' => 'select',
+					'label' => $this->l('Active customers only'),
+					'name' => 'PS_MOD_EXPCUS_CUS_ON',
+					'hint' => $this->l('Export only active customers'),
+					'options' => array(
+						'query' => $activeCus,
+						'id' => 'value',
+						'name' => 'name',
 					),
 				),
 			),
@@ -473,14 +509,15 @@ class ExportCustomers extends Module
 		$submit = 'submitGenerell';
 		return $this->renderForm($fields_form, $submit);
 	}
-	
+
 	private function renderFormActiveFields($type)
 	{
+		$switchType = _setSwitchType();
 		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`label` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `type` = \''.$type.'\'');
 		foreach ($result as $field)
 		{
 			$input[] = array(
-				'type' => 'switch',
+				'type' => $switchType,
 				'label' => $this->l($field['label']),
 				'name' => $field['expcusfield'].'_switch',
 				'hint' => $this->l('Activate this field'),
@@ -582,8 +619,7 @@ class ExportCustomers extends Module
 	{
 		$fields_value = array();
 		foreach($this->config as $key => $value)
-			$fields_value[$key] = (Configuration::get($key) >= 0 ? Configuration::get($key) : $value['value']); // >=  0 is requierd, due to the fact that we use values with 0
-
+			$fields_value[$key] = (Configuration::get($key) !== false ? Configuration::get($key) : $value['value']);
 
 		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`active`,`name`,`position` FROM `'._DB_PREFIX_.'export_customer_fields`');
 		foreach ($result as $field)
@@ -594,6 +630,22 @@ class ExportCustomers extends Module
 		}
 
 		return $fields_value;
+	}
+
+	private function _setSwitchType()
+	{
+		if ($this->_is16())
+			return 'switch';
+		else
+			return 'radio';
+	}
+
+	private function _is16()
+	{
+		if (version_compare(_PS_VERSION_, '1.6', '>=') >= 1)
+			return true;
+
+		return false;
 	}
 }
 ?>

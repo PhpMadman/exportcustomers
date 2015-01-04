@@ -10,12 +10,14 @@
 		<li class="active"><a href="#generell">Generell</a></li>
 		<li class=""><a href="#customer-fields">Customer Fields</a></li>
 		<li class=""><a href="#address-fields">Address Fields</a></li>
+		<li class=""><a href="#special-fields">Special Fields</a></li>
 		<li class=""><a href="#positions">Positions</a></li>
 	</ul>
 	<div class="tab-content panel">
 		<div id="generell" class="tab-pane active">{$generell_content}</div>
 		<div id="customer-fields" class="tab-pane">{$customer_fields_content}</div>
 		<div id="address-fields" class="tab-pane">{$address_fields_content}</div>
+		<div id="special-fields" class="tab-pane">{$special_fields_content}</div>
 		<div id="positions" class="tab-pane">{$positions_content}</div>
 	</div>
 	<script>

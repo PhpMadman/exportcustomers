@@ -1,27 +1,17 @@
-MadModules
-=====================
-
-ExportCustomers
-=====================
+# MadModules
+# ExportCustomers
 
 A simple module that export customers with address
 
-ToDo for 2.0
-=====================
+## ToDo for future releases
 ```
-1.5 and 1.6 compatible - 1.5 only compatible by using radio instead of switch
-Option to replace Gender Id with text.
-Option to replace Country id with text
+Add code to allow adding / editing / removing special fields
+	This might even require support for php files, using all kinds of hooks system to add it in correct place
+Option to replace * id with text
 	Manufacturer, State, Warehouse, pretty much everything with id_*
-Options to export only active address / customer - Two diffrent switches
-Support more customer tabels. such as connections, country_lang 
-Create tags for module versions, make relleases. Zip is then named MadModules-exportcustomer-2.0
-Add link to /releases in readme
 ```
 
-
-Changelog
-=====================
+## Changelog
 ```
 Version 2.0
 [-] Fixed module not beeing placed under Export tab in BO
@@ -35,4 +25,7 @@ Version 2.0
 [+] Added option only export customers / guests / both
 [+] Added option to only export with newsletter
 [+] Added option for gender text
+[+] Added option to replace country id with name
+[+] Added option to only export active customers
+[+] Added logo
 ```
