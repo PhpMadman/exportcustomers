@@ -28,4 +28,8 @@ Version 2.0
 [+] Added option to replace country id with name
 [+] Added option to only export active customers
 [+] Added logo
+
+Version 2.0.1
+[-] Fixed mysql error on install
+[-] Fixed missing $this on _setSwitchType
 ```

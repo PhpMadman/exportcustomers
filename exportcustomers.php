@@ -26,7 +26,7 @@ class ExportCustomers extends Module
 	{
 		$this->name = 'exportcustomers';
 		$this->tab = 'export';
-		$this->version = '2.0';
+		$this->version = '2.0.1';
 		$this->author = 'Madman';
 		// Based on Willem's module
 		$this->bootstrap = true;
@@ -91,7 +91,7 @@ class ExportCustomers extends Module
 	{
 		$create_table = Db::getInstance()->execute('CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'export_customer_fields` (
 		`id` INT(10) NOT NULL AUTO_INCREMENT,
-		`type` VARCHAR( 255 ) NOT NUL
+		`type` VARCHAR( 255 ) NOT NULL,
 		`expcusfield` VARCHAR(255) NOT NULL,
 		`label` VARCHAR(255) NOT NULL,
 		`name` VARCHAR(255) NOT NULL,
@@ -412,7 +412,7 @@ class ExportCustomers extends Module
 							'label' => $this->l('Disabled')
 						),
 					);
-		$switchType = _setSwitchType();
+		$switchType = $this->_setSwitchType();
 
 		$fields_form = array(
 			'form' => array(
@@ -512,7 +512,7 @@ class ExportCustomers extends Module
 
 	private function renderFormActiveFields($type)
 	{
-		$switchType = _setSwitchType();
+		$switchType = $this->_setSwitchType();
 		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`label` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `type` = \''.$type.'\'');
 		foreach ($result as $field)
 		{
