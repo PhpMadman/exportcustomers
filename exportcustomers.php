@@ -1,6 +1,6 @@
 <?php
 /**
-* 2014 Madman
+* 2015 Madman
 *
 * NOTICE OF LICENSE
 *
@@ -13,7 +13,7 @@
 * to license@prestashop.com so we can send you a copy immediately.
 *
 *  @author Madman
-*  @copyright  2014 Madman
+*  @copyright  2015 Madman
 *  @license	http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 **/
 
@@ -26,7 +26,7 @@ class ExportCustomers extends Module
 	{
 		$this->name = 'exportcustomers';
 		$this->tab = 'export';
-		$this->version = '2.0.1';
+		$this->version = '2.0.2';
 		$this->author = 'Madman';
 		// Based on Willem's module
 		$this->bootstrap = true;
