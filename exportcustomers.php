@@ -1,6 +1,6 @@
 <?php
 /**
-* 2014 Madman
+* 2015 Madman
 *
 * NOTICE OF LICENSE
 *
@@ -13,7 +13,7 @@
 * to license@prestashop.com so we can send you a copy immediately.
 *
 *  @author Madman
-*  @copyright  2014 Madman
+*  @copyright  2015 Madman
 *  @license	http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 **/
 
@@ -26,7 +26,7 @@ class ExportCustomers extends Module
 	{
 		$this->name = 'exportcustomers';
 		$this->tab = 'export';
-		$this->version = '2.0.1';
+		$this->version = '2.0.2';
 		$this->author = 'Madman';
 		// Based on Willem's module
 		$this->bootstrap = true;
@@ -260,7 +260,7 @@ class ExportCustomers extends Module
 		{
 			// if name is in array
 			if (isset($sqlNameMerge[$field['name']]))
-				// get the index and add the field to sub-aray
+				// get the index and add the field to sub-array
 				$sqlConstruct[$sqlNameMerge[$field['name']]]['expcusfields'][] = $field['expcusfield'];
 			else
 			{
@@ -354,8 +354,6 @@ class ExportCustomers extends Module
 // 		$debug .= $this->displayConfirmation($sql);
 		return $debug;
 
-		// ? change customer number to highest id - or remove that feature?
-		// Not used by default, ask on forum, does anyine use it, if so, it should be an option
 	}
 
 	public function getContent()
@@ -383,7 +381,11 @@ class ExportCustomers extends Module
 			'positions_content' => $this->renderFormPosition(),
 			'debug' => $debug,
 		));
-		return $this->display($this->_path, '/views/templates/admin/admin.tpl');
+		if ($this->_is16()) {
+            return $this->display($this->_path, '/views/templates/admin/admin.tpl');
+        } else {
+            return $this->display($this->_path, '/views/templates/admin/admin-1.5.tpl');
+        }
 	}
 
 	private function renderFormGenerell()
@@ -507,6 +509,15 @@ class ExportCustomers extends Module
 			),
 		);
 		$submit = 'submitGenerell';
+        if (!$this->_is16()) {
+            foreach ($fields_form['form']['input'] as &$array) {
+                if ($array['type'] == "radio") {
+                    $array['class'] = 't';
+                }
+                $array['desc'] = $array['hint'];
+                unset($array['hint']);
+            }
+        }
 		return $this->renderForm($fields_form, $submit);
 	}
 
@@ -556,11 +567,21 @@ class ExportCustomers extends Module
 			),
 		);
 		$submit = 'submitFields'.ucFirst($type);
+        if (!$this->_is16()) {
+            foreach ($fields_form['form']['input'] as &$array) {
+                if ($array['type'] == "radio") {
+                    $array['class'] = 't';
+                }
+                $array['desc'] = $array['hint'];
+                unset($array['hint']);
+            }
+        }
 		return $this->renderForm($fields_form, $submit);
 	}
 
 	public function renderFormPosition()
 	{
+        $input = array();
 		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`name`,`position` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `active` = 1 ORDER BY `position`');
 		foreach ($result as $field)
 		{
@@ -586,6 +607,15 @@ class ExportCustomers extends Module
 			),
 		);
 		$submit = 'submitFieldsPositions';
+        if (!$this->_is16()) {
+            foreach ($fields_form['form']['input'] as &$array) {
+                if ($array['type'] == "radio") {
+                    $array['class'] = 't';
+                }
+                $array['descr'] = $array['hint'];
+                unset($array['hint']);
+            }
+        }
 		return $this->renderForm($fields_form, $submit);
 	}
 
