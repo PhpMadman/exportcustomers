@@ -260,7 +260,7 @@ class ExportCustomers extends Module
 		{
 			// if name is in array
 			if (isset($sqlNameMerge[$field['name']]))
-				// get the index and add the field to sub-aray
+				// get the index and add the field to sub-array
 				$sqlConstruct[$sqlNameMerge[$field['name']]]['expcusfields'][] = $field['expcusfield'];
 			else
 			{
@@ -354,8 +354,6 @@ class ExportCustomers extends Module
 // 		$debug .= $this->displayConfirmation($sql);
 		return $debug;
 
-		// ? change customer number to highest id - or remove that feature?
-		// Not used by default, ask on forum, does anyine use it, if so, it should be an option
 	}
 
 	public function getContent()
@@ -561,6 +559,7 @@ class ExportCustomers extends Module
 
 	public function renderFormPosition()
 	{
+        $input = array();
 		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`name`,`position` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `active` = 1 ORDER BY `position`');
 		foreach ($result as $field)
 		{

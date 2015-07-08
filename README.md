@@ -32,4 +32,7 @@ Version 2.0
 Version 2.0.1
 [-] Fixed mysql error on install
 [-] Fixed missing $this on _setSwitchType
+
+Version 2.0.2
+[-] Fixed undefined $input variable
 ```
