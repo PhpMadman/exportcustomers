@@ -381,7 +381,11 @@ class ExportCustomers extends Module
 			'positions_content' => $this->renderFormPosition(),
 			'debug' => $debug,
 		));
-		return $this->display($this->_path, '/views/templates/admin/admin.tpl');
+		if ($this->_is16()) {
+            return $this->display($this->_path, '/views/templates/admin/admin.tpl');
+        } else {
+            return $this->display($this->_path, '/views/templates/admin/admin-1.5.tpl');
+        }
 	}
 
 	private function renderFormGenerell()
@@ -505,6 +509,15 @@ class ExportCustomers extends Module
 			),
 		);
 		$submit = 'submitGenerell';
+        if (!$this->_is16()) {
+            foreach ($fields_form['form']['input'] as &$array) {
+                if ($array['type'] == "radio") {
+                    $array['class'] = 't';
+                }
+                $array['desc'] = $array['hint'];
+                unset($array['hint']);
+            }
+        }
 		return $this->renderForm($fields_form, $submit);
 	}
 
@@ -554,6 +567,15 @@ class ExportCustomers extends Module
 			),
 		);
 		$submit = 'submitFields'.ucFirst($type);
+        if (!$this->_is16()) {
+            foreach ($fields_form['form']['input'] as &$array) {
+                if ($array['type'] == "radio") {
+                    $array['class'] = 't';
+                }
+                $array['desc'] = $array['hint'];
+                unset($array['hint']);
+            }
+        }
 		return $this->renderForm($fields_form, $submit);
 	}
 
@@ -585,6 +607,15 @@ class ExportCustomers extends Module
 			),
 		);
 		$submit = 'submitFieldsPositions';
+        if (!$this->_is16()) {
+            foreach ($fields_form['form']['input'] as &$array) {
+                if ($array['type'] == "radio") {
+                    $array['class'] = 't';
+                }
+                $array['descr'] = $array['hint'];
+                unset($array['hint']);
+            }
+        }
 		return $this->renderForm($fields_form, $submit);
 	}
 
