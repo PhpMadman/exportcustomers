@@ -157,6 +157,7 @@ class ExportCustomers extends Module
 		('address','a.active','Address Active','Address Activate','51')
 		");
 
+// 		Db::getInstance()->executeS('SELECT expcusfield FROM `"._DB_PREFIX_."export_customer_fields` WHERE expcusfield="lastvisit"');
 		/** -Special- */
 		$insert_special_data = Db::getInstance()->execute("INSERT INTO `"._DB_PREFIX_."export_customer_fields` (`type`,`expcusfield`,`label`,`name`,`position`) VALUES
 		('special','lastvisit','Last Visit','Last Visit','52')
