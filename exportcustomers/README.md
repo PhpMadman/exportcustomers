@@ -36,4 +36,8 @@ Version 2.0.1
 Version 2.0.2
 [-] Fixed undefined $input variable
 [-] Tabs don't work on 1.5. Added a Scroll And Die interface
+
+Version 2.0.3
+[+] Added uninstall function to completely remove all data and settings
+[+] Added options to delete the special commands
 ```
