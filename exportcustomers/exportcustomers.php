@@ -13,7 +13,7 @@
 * to license@prestashop.com so we can send you a copy immediately.
 *
 *  @author Madman
-*  @copyright  2015 Madman
+*  @copyright  2016 Madman
 *  @license	http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 **/
 
@@ -26,7 +26,7 @@ class ExportCustomers extends Module
 	{
 		$this->name = 'exportcustomers';
 		$this->tab = 'export';
-		$this->version = '2.0.2';
+		$this->version = '2.0.3';
 		$this->author = 'Madman';
 		// Based on Willem's module
 		$this->bootstrap = true;
@@ -87,6 +87,15 @@ class ExportCustomers extends Module
 		return true;
 	}
 
+	public function uninstall()
+	{
+        Db::getInstance()->Execute('DROP TABLE `'._DB_PREFIX_.'export_customer_fields`');
+        foreach ($this->config as $key => $value) {
+            Configuration::deleteByName($key);
+        }
+        return parent::uninstall();
+	}
+
 	function installDB()
 	{
 		$create_table = Db::getInstance()->execute('CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'export_customer_fields` (
@@ -100,68 +109,85 @@ class ExportCustomers extends Module
 		PRIMARY KEY (`id`)
 		) ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=utf8;');
 
-		$insert_customer_data = Db::getInstance()->execute("INSERT INTO `"._DB_PREFIX_."export_customer_fields` (`type`,`expcusfield`,`label`,`name`,`position`) VALUES
-		('customer','c.id_customer','Customer ID','Customer ID','1'),
-		('customer','c.id_shop_group','Customer Shop Group ID','Customer Shop Group ID','2'),
-		('customer','c.id_shop','Customer Shop ID','Customer Shop ID','3'),
-		('customer','c.id_gender','Customer Gender ID','Customer Gender ID','4'),
-		('customer','c.id_default_group','Customer Default Group ID','Customer Default Group ID','5'),
-		('customer','c.id_risk','Customer B2B Risk','Customer B2B Risk','6'),
-		('customer','c.company','Customer Company','Customer Company','7'),
-		('customer','c.siret','Customer Siret','Customer Siret','8'),
-		('customer','c.ape','Customer Ape','Customer Ape','9'),
-		('customer','c.firstname','Customer Firstname','Customer Firstname','10'),
-		('customer','c.lastname','Customer Lastname','Customer Lastname','11'),
-		('customer','c.email','Customer Email','Customer Email','12'),
-		('customer','c.passwd','Customer Password Hash','Customer Password Hash','13'),
-		('customer','c.last_passwd_gen','Customer Last Password Gen','Customer Last Password Gen','14'),
-		('customer','c.birthday','Customer Birthday','Customer Birthday','15'),
-		('customer','c.newsletter','Customer Newsletter','Customer Newsletter','16'),
-		('customer','c.ip_registration_newsletter','Customer IP Reg Newsletter','Customer IP Reg Newsletter','17'),
-		('customer','c.newsletter_date_add','Customer Newsletter Date','Customer Newsletter Date','18'),
-		('customer','c.optin','Customer Opt-In','Customer Opt-In','19'),
-		('customer','c.website','Customer Website','Customer Website','20'),
-		('customer','c.outstanding_allow_amount','Customer B2B Allow Amount','Customer B2B Allow Amount','21'),
-		('customer','c.show_public_prices','Customer Show Price','Customer Show Price','22'),
-		('customer','c.max_payment_days','Customer B2B Payment Days','Customer B2B Payment Days','23'),
-		('customer','c.secure_key','Customer Secure Key','Customer Secure Key','24'),
-		('customer','c.note','Customer Note','Customer Note','25'),
-		('customer','c.active','Customer Active','Customer Active','26'),
-		('customer','c.is_guest','Customer Guest','Customer Guest','27'),
-		('customer','c.date_add','Customer Date Add','Customer Date Add','28'),
-		('customer','c.date_upd','Customer Date Update','Customer Date Update','29')
-		");
+        $gotCustomer = Db::getInstance()->getValue('SELECT expcusfield FROM `"._DB_PREFIX_."export_customer_fields` WHERE expcusfield="c.id_customer"');
+        if (!$gotCustomer) {
+            $insert_customer_data = Db::getInstance()->execute("INSERT INTO `"._DB_PREFIX_."export_customer_fields` (`type`,`expcusfield`,`label`,`name`,`position`) VALUES
+            ('customer','c.id_customer','Customer ID','Customer ID','1'),
+            ('customer','c.id_shop_group','Customer Shop Group ID','Customer Shop Group ID','2'),
+            ('customer','c.id_shop','Customer Shop ID','Customer Shop ID','3'),
+            ('customer','c.id_gender','Customer Gender ID','Customer Gender ID','4'),
+            ('customer','c.id_default_group','Customer Default Group ID','Customer Default Group ID','5'),
+            ('customer','c.id_risk','Customer B2B Risk','Customer B2B Risk','6'),
+            ('customer','c.company','Customer Company','Customer Company','7'),
+            ('customer','c.siret','Customer Siret','Customer Siret','8'),
+            ('customer','c.ape','Customer Ape','Customer Ape','9'),
+            ('customer','c.firstname','Customer Firstname','Customer Firstname','10'),
+            ('customer','c.lastname','Customer Lastname','Customer Lastname','11'),
+            ('customer','c.email','Customer Email','Customer Email','12'),
+            ('customer','c.passwd','Customer Password Hash','Customer Password Hash','13'),
+            ('customer','c.last_passwd_gen','Customer Last Password Gen','Customer Last Password Gen','14'),
+            ('customer','c.birthday','Customer Birthday','Customer Birthday','15'),
+            ('customer','c.newsletter','Customer Newsletter','Customer Newsletter','16'),
+            ('customer','c.ip_registration_newsletter','Customer IP Reg Newsletter','Customer IP Reg Newsletter','17'),
+            ('customer','c.newsletter_date_add','Customer Newsletter Date','Customer Newsletter Date','18'),
+            ('customer','c.optin','Customer Opt-In','Customer Opt-In','19'),
+            ('customer','c.website','Customer Website','Customer Website','20'),
+            ('customer','c.outstanding_allow_amount','Customer B2B Allow Amount','Customer B2B Allow Amount','21'),
+            ('customer','c.show_public_prices','Customer Show Price','Customer Show Price','22'),
+            ('customer','c.max_payment_days','Customer B2B Payment Days','Customer B2B Payment Days','23'),
+            ('customer','c.secure_key','Customer Secure Key','Customer Secure Key','24'),
+            ('customer','c.note','Customer Note','Customer Note','25'),
+            ('customer','c.active','Customer Active','Customer Active','26'),
+            ('customer','c.is_guest','Customer Guest','Customer Guest','27'),
+            ('customer','c.date_add','Customer Date Add','Customer Date Add','28'),
+            ('customer','c.date_upd','Customer Date Update','Customer Date Update','29')
+            ");
+		} else {
+            $insert_customer_data = true;
+		}
 
-		$insert_address_data = Db::getInstance()->execute("INSERT INTO `"._DB_PREFIX_."export_customer_fields` (`type`,`expcusfield`,`label`,`name`,`position`) VALUES
-		('address','a.id_address','Address ID','Address ID','30'),
-		('address','a.id_country','Address Country ID','Address Country ID','31'),
-		('address','a.id_state','Address State ID','Address State ID','32'),
-		('address','a.id_manufacturer','Address Manufacturer ID','Address Manufacturer ID','33'),
-		('address','a.id_supplier','Address Supplier ID','Address Supplier ID','34'),
-		('address','a.id_warehouse','Address Warehouse ID','Address Warehouse ID','35'),
-		('address','a.alias','Address Alias','Address Alias','36'),
-		('address','a.company','Address Company','Address Company','37'),
-		('address','a.firstname','Address Firstname','Address Firstname','38'),
-		('address','a.lastname','Address Lastname','Address Lastname','39'),
-		('address','a.address1','Address Address1','Address Address1','40'),
-		('address','a.address2','Address Address2','Address Address2','41'),
-		('address','a.postcode','Address Postcode','Address Postcode','42'),
-		('address','a.city','Address City','Address City','43'),
-		('address','a.other','Address Other','Address Other','44'),
-		('address','a.phone','Address Phone','Address Phone','45'),
-		('address','a.phone_mobile','Address Mobilephone','Address Mobilephone','46'),
-		('address','a.vat_number','Address VAT','Address VAT','47'),
-		('address','a.dni','Address DNI','Address DNI','48'),
-		('address','a.date_add','Address Date Add','Address Date Add','49'),
-		('address','a.date_upd','Address Date Update','Address Date Update','50'),
-		('address','a.active','Address Active','Address Activate','51')
-		");
+        $gotAdress = Db::getInstance()->getValue('SELECT expcusfield FROM `"._DB_PREFIX_."export_customer_fields` WHERE expcusfield="a.id_address"');
+        if (!$gotCustomer) {
+            $insert_address_data = Db::getInstance()->execute("INSERT INTO `"._DB_PREFIX_."export_customer_fields` (`type`,`expcusfield`,`label`,`name`,`position`) VALUES
+            ('address','a.id_address','Address ID','Address ID','30'),
+            ('address','a.id_country','Address Country ID','Address Country ID','31'),
+            ('address','a.id_state','Address State ID','Address State ID','32'),
+            ('address','a.id_manufacturer','Address Manufacturer ID','Address Manufacturer ID','33'),
+            ('address','a.id_supplier','Address Supplier ID','Address Supplier ID','34'),
+            ('address','a.id_warehouse','Address Warehouse ID','Address Warehouse ID','35'),
+            ('address','a.alias','Address Alias','Address Alias','36'),
+            ('address','a.company','Address Company','Address Company','37'),
+            ('address','a.firstname','Address Firstname','Address Firstname','38'),
+            ('address','a.lastname','Address Lastname','Address Lastname','39'),
+            ('address','a.address1','Address Address1','Address Address1','40'),
+            ('address','a.address2','Address Address2','Address Address2','41'),
+            ('address','a.postcode','Address Postcode','Address Postcode','42'),
+            ('address','a.city','Address City','Address City','43'),
+            ('address','a.other','Address Other','Address Other','44'),
+            ('address','a.phone','Address Phone','Address Phone','45'),
+            ('address','a.phone_mobile','Address Mobilephone','Address Mobilephone','46'),
+            ('address','a.vat_number','Address VAT','Address VAT','47'),
+            ('address','a.dni','Address DNI','Address DNI','48'),
+            ('address','a.date_add','Address Date Add','Address Date Add','49'),
+            ('address','a.date_upd','Address Date Update','Address Date Update','50'),
+            ('address','a.active','Address Active','Address Activate','51')
+            ");
+		} else {
+            $insert_address_data = true;
+		}
 
-		/** -Special- */
-		$insert_special_data = Db::getInstance()->execute("INSERT INTO `"._DB_PREFIX_."export_customer_fields` (`type`,`expcusfield`,`label`,`name`,`position`) VALUES
-		('special','lastvisit','Last Visit','Last Visit','52')
-		");
-		/* -Special- **/
+		$weHaveBeenVistied = Db::getInstance()->getValue('SELECT expcusfield FROM `"._DB_PREFIX_."export_customer_fields` WHERE expcusfield="lastvisit"');
+		if (!$weHaveBeenVistied) {
+            /** -Special- */
+            $insert_special_data = Db::getInstance()->execute("INSERT INTO `"._DB_PREFIX_."export_customer_fields` (`type`,`expcusfield`,`label`,`name`,`position`) VALUES
+            ('special','lastvisit','Last Visit','Last Visit','52')
+            ");
+            /* -Special- **/
+		} else {
+            // It's true beacuse data is alreay there, and we can't fail this check
+            $insert_special_data = true;
+		}
+
 		if ($create_table && $insert_customer_data && $insert_address_data && $insert_special_data)
 			return true;
 
@@ -177,23 +203,32 @@ class ExportCustomers extends Module
 		elseif (Tools::isSubmit('submitFieldsSpecial'))
 			$type = 'special';
 
-		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`active`,`name` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `type` = \''.$type.'\'');
+		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`active`,`name`,`id` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `type` = \''.$type.'\'');
 		$sqlActive = '';
 		$sqlName = '';
 		$sqlINArray = array();
 		foreach ($result as $field)
 		{
-			// make sure we got the field in $_POST and that the value does not match db value
-			if (isset($_POST[str_replace('.','_',$field['expcusfield']).'_switch']) && $_POST[str_replace('.','_',$field['expcusfield']).'_switch'] != $field['active'])
-			{
-				$sqlActive .= 'WHEN \''.$field['expcusfield'].'\' THEN \'' .$_POST[str_replace('.','_',$field['expcusfield']).'_switch'].'\' '; // Create sql to update value
-				$sqlINArray[$field['expcusfield']] = $field['expcusfield']; // set the field for sql IN
-			}
+            $deleted = false;
+              if ($type == 'special' &&
+                    isset($_POST[str_replace('.','_',$field['expcusfield']).'_'.$field['id'].'_del']) &&
+                    $_POST[str_replace('.','_',$field['expcusfield']).'_'.$field['id'].'_del'] == 1) {
+                    Db::getInstance()->execute('DELETE FROM `'._DB_PREFIX_.'export_customer_fields` WHERE id='.$field['id']);
+                    $deleted = true;
+            }
+            if (!$deleted) {
+                // make sure we got the field in $_POST and that the value does not match db value
+                if (isset($_POST[str_replace('.','_',$field['expcusfield']).'_switch']) && $_POST[str_replace('.','_',$field['expcusfield']).'_switch'] != $field['active'])
+                {
+                    $sqlActive .= 'WHEN \''.$field['expcusfield'].'\' THEN \'' .$_POST[str_replace('.','_',$field['expcusfield']).'_switch'].'\' '; // Create sql to update value
+                    $sqlINArray[$field['expcusfield']] = $field['expcusfield']; // set the field for sql IN
+                }
 
-			if (isset($_POST[str_replace('.','_',$field['expcusfield']).'_name']) && $_POST[str_replace('.','_',$field['expcusfield']).'_name'] != $field['name'])
-			{
-				$sqlName = 'WHEN \''. $field['expcusfield'].'\' THEN \'' .$_POST[str_replace('.','_',$field['expcusfield']).'_name'].'\' '; // Create sql to update value
-				$sqlINArray[$field['expcusfield']] = $field['expcusfield']; // set the field for sql IN
+                if (isset($_POST[str_replace('.','_',$field['expcusfield']).'_name']) && $_POST[str_replace('.','_',$field['expcusfield']).'_name'] != $field['name'])
+                {
+                    $sqlName = 'WHEN \''. $field['expcusfield'].'\' THEN \'' .$_POST[str_replace('.','_',$field['expcusfield']).'_name'].'\' '; // Create sql to update value
+                    $sqlINArray[$field['expcusfield']] = $field['expcusfield']; // set the field for sql IN
+                }
 			}
 		}
 		// make sure we got either name or active to update
@@ -427,7 +462,7 @@ class ExportCustomers extends Module
 					'type' => 'text',
 					'label' => $this->l('Customer Number'),
 					'name' => 'PS_MOD_EXPCUS_CUSNUM',
-					'hint' => $this->l('First dd must be higher then this number (number not included in export)'),
+					'hint' => $this->l('First customer id must be higher then this number (number not included in export)'),
 				),
 				array(
 					'type' => 'text',
@@ -524,7 +559,8 @@ class ExportCustomers extends Module
 	private function renderFormActiveFields($type)
 	{
 		$switchType = $this->_setSwitchType();
-		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`label` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `type` = \''.$type.'\'');
+		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`label`,`id` FROM `'._DB_PREFIX_.'export_customer_fields` WHERE `type` = \''.$type.'\'');
+		$input = array();
 		foreach ($result as $field)
 		{
 			$input[] = array(
@@ -551,6 +587,26 @@ class ExportCustomers extends Module
 					'name' => $field['expcusfield'].'_name',
 					'hint' => $this->l('CSV Field name'),
 				);
+            if ($type == 'special') {
+                $input[] = array(
+                    'type' => $switchType,
+                    'label' => $this->l('Delete').' '.$this->l($field['label']),
+                    'name' => $field['expcusfield'].'_'.$field['id'].'_del',
+                    'hint' => $this->l('Delete this field'),
+                    'values' => array(
+                        array(
+                            'id' => 'delete_on',
+                            'value' => 1,
+                            'label' => $this->l('Delete')
+                        ),
+                        array(
+                            'id' => 'delete_off',
+                            'value' => 0,
+                            'label' => $this->l('Keep')
+                        ),
+                    ),
+                );
+            }
 		}
 
 		$fields_form = array(
@@ -651,12 +707,13 @@ class ExportCustomers extends Module
 		foreach($this->config as $key => $value)
 			$fields_value[$key] = (Configuration::get($key) !== false ? Configuration::get($key) : $value['value']);
 
-		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`active`,`name`,`position` FROM `'._DB_PREFIX_.'export_customer_fields`');
+		$result = Db::getInstance()->ExecuteS('SELECT `expcusfield`,`active`,`name`,`position`,`id` FROM `'._DB_PREFIX_.'export_customer_fields`');
 		foreach ($result as $field)
 		{
 			$fields_value[$field['expcusfield'].'_switch'] = $field['active'];
 			$fields_value[$field['expcusfield'].'_name'] = $field['name'];
 			$fields_value[$field['expcusfield'].'_pos'] = $field['position'];
+			$fields_value[$field['expcusfield'].'_'.$field['id'].'_del'] = 0;
 		}
 
 		return $fields_value;
