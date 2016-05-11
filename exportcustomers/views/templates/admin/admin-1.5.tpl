@@ -43,7 +43,7 @@
 </style>
 <div class="panel">
     <ul id="tabExportCustomers" class="nav nav-tabs">
-        <li class=""><a href="#generell">Generell</a></li>
+        <li class=""><a href="#generell">Settings</a></li>
         <li class=""><a href="#customer-fields">Customer Fields</a></li>
         <li class=""><a href="#address-fields">Address Fields</a></li>
         <li class=""><a href="#special-fields">Special Fields</a></li>

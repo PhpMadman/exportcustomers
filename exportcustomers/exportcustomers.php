@@ -26,7 +26,7 @@ class ExportCustomers extends Module
 	{
 		$this->name = 'exportcustomers';
 		$this->tab = 'export';
-		$this->version = '2.0.3';
+		$this->version = '2.0.4';
 		$this->author = 'Madman';
 		// Based on Willem's module
 		$this->bootstrap = true;
@@ -63,8 +63,12 @@ class ExportCustomers extends Module
 				'value' => 0,
 				'configurable' => true,
 			),
+            'PS_MOD_EXPCUS_NOADDY' => array(
+                'value' => 0,
+                'configurable' => true,
+            ),
 			'PS_MOD_EXPCUS_CUS_ON' => array(
-				'value' => 1,
+				'value' => 0,
 				'configurable' => true,
 			),
 			'PS_MOD_EXPCUS_RNT_REP' => array(
@@ -337,11 +341,18 @@ class ExportCustomers extends Module
 
 		$sql = 'SELECT '.$sqlCmd.' FROM '._DB_PREFIX_.'customer c
 		LEFT JOIN '._DB_PREFIX_.'address a ON (c.id_customer = a.id_customer)
-		WHERE c.id_customer > '.Configuration::get('PS_MOD_EXPCUS_CUSNUM').' AND a.deleted = 0 AND c.deleted = 0
-		AND c.active != '.Configuration::get('PS_MOD_EXPCUS_CUS_ON').'
+		WHERE c.id_customer > '.Configuration::get('PS_MOD_EXPCUS_CUSNUM').' AND c.deleted = 0 ';
+		$noAddy = Configuration::get('PS_MOD_EXPCUS_NOADDY');
+		if ($noAddy == 0) { // Must have address
+            $sql .= 'AND a.deleted = 0 ';
+		} elseif ($noAddy == 1) { // Can't have address
+            $sql .= 'AND ISNULL(a.id_customer) ';
+		} // Else for conf 2 is not needed, will get all customers
+		$sql .= 'AND c.active != '.Configuration::get('PS_MOD_EXPCUS_CUS_ON').'
 		AND c.is_guest != '.Configuration::get('PS_MOD_EXPCUS_CUSTYPE').'
 		AND c.newsletter != '.Configuration::get('PS_MOD_EXPCUS_NEWSLETTER').'
 		ORDER BY c.id_customer ASC';
+// 		echo $sql;
 
 		// prepare variabels
 		$delimiter = Configuration::get('PS_MOD_EXPCUS_DELIMITER');
@@ -437,6 +448,10 @@ class ExportCustomers extends Module
 			array('value' => 1, 'name' => $this->l('Disabled only'),),
 			array('value' => 0, 'name' => $this->l('Enabled only'),),
 		);
+        $addyCus = array(array('value' => 2, 'name' => $this->l('All customers'),),
+            array('value' => 1, 'name' => $this->l('Without address only'),),
+            array('value' => 0, 'name' => $this->l('With address only'),),
+        );
 		$switchValues = array(
 						array(
 							'id' => 'active_on',
@@ -527,15 +542,26 @@ class ExportCustomers extends Module
 				),
 				array(
 					'type' => 'select',
-					'label' => $this->l('Active customers only'),
+					'label' => $this->l('Select state of customer'),
 					'name' => 'PS_MOD_EXPCUS_CUS_ON',
-					'hint' => $this->l('Export only active customers'),
+					'hint' => $this->l('Export active/inactive customers'),
 					'options' => array(
 						'query' => $activeCus,
 						'id' => 'value',
 						'name' => 'name',
 					),
 				),
+                array(
+                    'type' => 'select',
+                    'label' => $this->l('Address requirements'),
+                    'name' => 'PS_MOD_EXPCUS_NOADDY',
+                    'hint' => $this->l('Allows you to export customers, even without address'),
+                    'options' => array(
+                        'query' => $addyCus,
+                        'id' => 'value',
+                        'name' => 'name',
+                    ),
+                ),
 			),
 			'submit' => array(
 				'title' => $this->l('Save / Export'),

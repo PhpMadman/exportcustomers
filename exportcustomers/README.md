@@ -40,4 +40,9 @@ Version 2.0.2
 Version 2.0.3
 [+] Added uninstall function to completely remove all data and settings
 [+] Added options to delete the special commands
+
+Version 2.0.4
+[+] Added option to export customers with / without address
+[*] Minor text updates
+
 ```
